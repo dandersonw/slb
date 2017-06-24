@@ -1,4 +1,5 @@
 import re
+import itertools
 
 from util import TextSource, RegionSource
 from typing import Iterable, Dict
@@ -7,6 +8,9 @@ from typing import Iterable, Dict
 class TextRegion:
     def __init__(self, lines: Iterable[str]):
         self.lines = list(lines)
+
+    def format_out(self, **kwards) -> Iterable[str]:
+        return self.lines
 
     @staticmethod
     def is_init_line(line: str, state: Dict):
@@ -32,6 +36,9 @@ class ParagraphRegion(TextRegion):
 class Doc:
     def __init__(self, regions: Iterable[TextRegion]):
         self.regions = list(regions)
+
+    def format_out(self, **kwargs) -> Iterable[str]:
+        return itertools.chain.from_iterable(r.format_out() for r in self.regions)
 
     @staticmethod
     def get_region_types():
@@ -65,7 +72,7 @@ class Paragraph:
 
     @staticmethod
     def is_paragraph_breaker(line):
-        return line == "\n"
+        return line == ""
 
     @classmethod
     def from_lines(cls, lines):

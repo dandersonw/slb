@@ -29,13 +29,11 @@ class FileTextSource(TextSource):
             temp = self.head
             self.head = None
             return temp
-        n = next(self.file)
-        print(n)
-        return n
+        return next(self.file).rstrip()
 
     def peek(self):
         if self.head is None:
-            self.head = next(self.file)
+            self.head = next(self)
         return self.head
 
 
