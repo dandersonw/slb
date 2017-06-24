@@ -1,5 +1,6 @@
 import re
 import itertools
+import nlp
 
 from util import TextSource, RegionSource
 from typing import Iterable, Dict
@@ -32,13 +33,16 @@ class ParagraphRegion(TextRegion):
         super().__init__(lines)
         self.paragraphs = list(Paragraph.from_lines(self.lines))
 
+    def format_out(self, **kwargs):
+        return itertools.chain.from_iterable(p.format_out(**kwargs) for p in self.paragraphs)
+
 
 class Doc:
     def __init__(self, regions: Iterable[TextRegion]):
         self.regions = list(regions)
 
     def format_out(self, **kwargs) -> Iterable[str]:
-        return itertools.chain.from_iterable(r.format_out() for r in self.regions)
+        return itertools.chain.from_iterable(r.format_out(**kwargs) for r in self.regions)
 
     @staticmethod
     def get_region_types():
@@ -63,9 +67,21 @@ class Paragraph:
         self.lines = list(lines)
         self.text = self.join_read_lines(self.lines)
 
+    def format_out(self, **kwargs):
+        can_flow = kwargs.get("can_flow", lambda l: True)
+        if not can_flow(self):
+            return self.lines
+
+        tokenizer = kwargs.get("tokenizer", nlp.Tokenizer)
+        allocator = kwargs.get("allocator", nlp.Allocator)
+
+        tokens = tokenizer.tokenize(self.text, **kwargs)
+        token_lines = allocator.allocate(tokens)
+        return [""] + [tokenizer.join_tokens(token_line) for token_line in token_lines]
+
     @staticmethod
     def join_read_lines(lines: Iterable) -> str:
-        text = "".join(lines)
+        text = " ".join(lines)
         text = re.sub(r"\n", " ", text)
         text = re.sub(r"(\s)\s*", r"\1", text)
         return text
@@ -79,7 +95,8 @@ class Paragraph:
         current_paragraph = []
         for line in lines:
             if cls.is_paragraph_breaker(line):
-                yield cls(current_paragraph)
+                if current_paragraph:
+                    yield cls(current_paragraph)
                 current_paragraph = []
             else:
                 current_paragraph.append(line)
