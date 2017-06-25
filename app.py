@@ -4,6 +4,7 @@ import argparse
 import process
 import util
 import md
+import nlp
 
 
 def main():
@@ -16,7 +17,7 @@ def main():
     with open(args.i, mode="r", encoding="utf-8") as inputFile:
         source = util.FileTextSource(inputFile)
         doc = md.MdDoc.from_source(source)
-        print("\n".join(doc.format_out()))
+        print("\n".join(doc.format_out(tokenizer=nlp.Spacy, allocator=nlp.Spacy)))
 
 
 if __name__ == "__main__":
