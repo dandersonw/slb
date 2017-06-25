@@ -70,21 +70,29 @@ class Spacy(Tokenizer, Allocator):
         return lens
 
     @staticmethod
-    def break_at(token):
-        if token.tag_ == "CC" and token.head.pos_ == "VERB":
-            return True
-        return False
+    def tag_desired_breaks(doc):
+        doc_len = len(doc)
+        break_at = [False] * doc_len
+        for sent in doc.sents:
+            if sent.end < doc_len:
+                break_at[sent.end] = True
 
-    @staticmethod
-    def allocate(doc, **kwargs):
+        for token in doc:
+            if token.tag_ == "CC" and token.head.pos_ == "VERB":
+                break_at[token.i] = True
+        return break_at
+
+    @classmethod
+    def allocate(cls, doc, **kwargs):
         fill_width = kwargs.get("fill_width", 80)
-        commitments = Spacy._total_token_lens(doc)
+        commitments = cls._total_token_lens(doc)
+        break_at = cls.tag_desired_breaks(doc)
         lines = []
         line = []
         line_len = 0
         for token, commitment in zip(doc, commitments):
             token_len = len(token)
-            if line_len + commitment > fill_width or Spacy.break_at(token):
+            if line_len + commitment > fill_width or break_at[token.i]:
                 lines.append(line)
                 line = []
                 line.append(token)

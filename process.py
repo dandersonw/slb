@@ -42,7 +42,15 @@ class Doc:
         self.regions = list(regions)
 
     def format_out(self, **kwargs) -> Iterable[str]:
+        default_config = self._get_default_format_config()
+        for key in default_config:
+            if key not in kwargs:
+                kwargs[key] = default_config[key]
         return itertools.chain.from_iterable(r.format_out(**kwargs) for r in self.regions)
+
+    @staticmethod
+    def _get_default_format_config():
+        return dict()
 
     @staticmethod
     def get_region_types():
@@ -70,7 +78,7 @@ class Paragraph:
     def format_out(self, **kwargs):
         can_flow = kwargs.get("can_flow", lambda l: True)
         if not can_flow(self):
-            return self.lines
+            return [""] + self.lines
 
         tokenizer = kwargs.get("tokenizer", nlp.Tokenizer)
         allocator = kwargs.get("allocator", nlp.Allocator)

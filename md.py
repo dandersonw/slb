@@ -1,4 +1,6 @@
-from process import Doc, TextRegion, ParagraphRegion
+import re
+
+from process import Doc, TextRegion, ParagraphRegion, Paragraph
 from typing import Iterable
 
 
@@ -6,6 +8,17 @@ class MdDoc(Doc):
     @staticmethod
     def get_region_types():
         return [MdCodeRegion, MdParagraphRegion]
+
+    @staticmethod
+    def _get_default_format_config():
+        return {"can_flow": MdDoc.can_flow_paragraph}
+
+    HEADER_RE = re.compile(r"^#")
+    UNFLOWABLE_RE = [HEADER_RE]
+
+    @staticmethod
+    def can_flow_paragraph(paragraph: Paragraph):
+        return not any(regex.search(paragraph.text) for regex in MdDoc.UNFLOWABLE_RE)
 
 
 class MdCodeRegion(TextRegion):
