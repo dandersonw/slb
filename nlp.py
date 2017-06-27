@@ -12,24 +12,59 @@ class Tokenizer:
     def join_tokens(tokens: Iterable) -> str:
         return " ".join(tokens)
 
+    @staticmethod
+    def token_len_with_whitespace(token):
+        return len(token) + 1
+
 
 class Allocator:
     @staticmethod
-    def allocate(tokens: Iterable, **kwargs) -> Iterable[Iterable]:
+    def tag_desired_breaks(doc, **kwargs):
+        return [False] * len(doc)
+
+    @staticmethod
+    def tag_illegal_breaks(doc, **kwargs):
+        return [False] * len(doc)
+
+    @staticmethod
+    def _total_token_lens(doc, illegal_at):
+        lens = [0] * len(doc)
+        commitment = 0
+        for i in range(len(doc) - 1, -1, -1):
+            t_len = len(doc[i])
+            commitment += t_len
+            lens[i] = commitment
+            if not illegal_at[i]:
+                commitment = 0
+        return lens
+
+    @classmethod
+    def allocate(cls, doc, wlen_f, **kwargs):
         fill_width = kwargs.get("fill_width", 80)
+        break_at = cls.tag_desired_breaks(doc, **kwargs)
+        illegal_at = cls.tag_illegal_breaks(doc, **kwargs)
+        commitments = cls._total_token_lens(doc, illegal_at)
         lines = []
         line = []
         line_len = 0
-        for token in tokens:
-            token_len = len(token)
-            if line_len + token_len < fill_width:
-                line_len += token_len
-                line.append(token)
-            else:
+        i = 0
+        while i < len(doc):
+            commitment = commitments[i]
+            if (line_len + commitment > fill_width or break_at[i]) and not illegal_at[i]:
                 lines.append(line)
                 line = []
-                line.append(token)
-                line_len = token_len + 1
+                line_len = 0
+                append_token = True
+                while i < len(doc) and append_token:
+                    line.append(doc[i])
+                    line_len += wlen_f(doc[i])
+                    append_token = illegal_at[i + 1] if i < len(doc) - 1 else False
+                    i += 1
+            else:
+                line_len += wlen_f(doc[i])
+                line.append(doc[i])
+                i += 1
+
         if line:
             lines.append(line)
         return lines
@@ -57,19 +92,11 @@ class Spacy(Tokenizer, Allocator):
         return str(doc[tokens[0].i: (tokens[-1].i + 1)])
 
     @staticmethod
-    def _total_token_lens(doc, illegal_at):
-        lens = [0] * len(doc)
-        commitment = 0
-        for i in range(len(doc) - 1, -1, -1):
-            t_len = len(doc[i])
-            commitment += t_len
-            lens[i] = commitment
-            if not illegal_at[i]:
-                commitment = 0
-        return lens
+    def token_len_with_whitespace(token):
+        return len(token.text_with_ws)
 
     @staticmethod
-    def tag_desired_breaks(doc):
+    def tag_desired_breaks(doc, **kwargs):
         doc_len = len(doc)
         break_at = [False] * doc_len
         for sent in doc.sents:
@@ -93,42 +120,9 @@ class Spacy(Tokenizer, Allocator):
         return break_at
 
     @staticmethod
-    def tag_illegal_breaks(doc):
+    def tag_illegal_breaks(doc, **kwargs):
         illegal = [False] * len(doc)
         for token in doc[:-1]:
             if not token.whitespace_:
                 illegal[token.i + 1] = True
         return illegal
-
-    @classmethod
-    def allocate(cls, doc, **kwargs):
-        fill_width = kwargs.get("fill_width", 80)
-        break_at = cls.tag_desired_breaks(doc)
-        illegal_at = cls.tag_illegal_breaks(doc)
-        commitments = cls._total_token_lens(doc, illegal_at)
-        lines = []
-        line = []
-        line_len = 0
-        i = 0
-        while i < len(doc):
-            token = doc[i]
-            commitment = commitments[i]
-            token_len = len(token.text_with_ws)
-            if (line_len + commitment > fill_width or break_at[token.i]) and not illegal_at[i]:
-                lines.append(line)
-                line = []
-                line_len = 0
-                append_token = True
-                while i < len(doc) and append_token:
-                    line.append(doc[i])
-                    line_len += len(doc[i].text_with_ws)
-                    append_token = illegal_at[i + 1] if i < len(doc) - 1 else False
-                    i += 1
-            else:
-                line_len += token_len
-                line.append(token)
-                i += 1
-
-        if line:
-            lines.append(line)
-        return lines

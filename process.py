@@ -81,10 +81,11 @@ class Paragraph:
             return [""] + self.lines
 
         tokenizer = kwargs.get("tokenizer", nlp.Tokenizer)
+        len_f = kwargs.get("token_len_f", tokenizer.token_len_with_whitespace)
         allocator = kwargs.get("allocator", nlp.Allocator)
 
         tokens = tokenizer.tokenize(self.text, **kwargs)
-        token_lines = allocator.allocate(tokens)
+        token_lines = allocator.allocate(tokens, len_f)
         return [""] + [tokenizer.join_tokens(token_line) for token_line in token_lines]
 
     @staticmethod
