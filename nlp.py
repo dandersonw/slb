@@ -92,11 +92,20 @@ class Spacy(Tokenizer, Allocator):
                 break_at[token.i] = False
         return break_at
 
+    @staticmethod
+    def tag_illegal_breaks(doc):
+        illegal = [False] * len(doc)
+        for token in doc[:-1]:
+            if not token.whitespace_:
+                illegal[token.i + 1] = True
+        return illegal
+
     @classmethod
     def allocate(cls, doc, **kwargs):
         fill_width = kwargs.get("fill_width", 80)
         commitments = cls._total_token_lens(doc)
         break_at = cls.tag_desired_breaks(doc)
+        illegal_at = cls.tag_illegal_breaks(doc)
         lines = []
         line = []
         line_len = 0
@@ -105,7 +114,7 @@ class Spacy(Tokenizer, Allocator):
             token = doc[i]
             commitment = commitments[i]
             token_len = len(token.text_with_ws)
-            if line_len + commitment > fill_width or break_at[token.i]:
+            if (line_len + commitment > fill_width or break_at[token.i]) and not illegal_at[i]:
                 lines.append(line)
                 line = []
                 line_len = 0
@@ -113,7 +122,7 @@ class Spacy(Tokenizer, Allocator):
                 while i < len(doc) and append_token:
                     line.append(doc[i])
                     line_len += len(doc[i].text_with_ws)
-                    append_token = not doc[i].whitespace_
+                    append_token = illegal_at[i + 1] if i < len(doc) - 1 else False
                     i += 1
             else:
                 line_len += token_len
