@@ -57,15 +57,15 @@ class Spacy(Tokenizer, Allocator):
         return str(doc[tokens[0].i: (tokens[-1].i + 1)])
 
     @staticmethod
-    def _total_token_lens(doc):
+    def _total_token_lens(doc, illegal_at):
         lens = [0] * len(doc)
         commitment = 0
         for i in range(len(doc) - 1, -1, -1):
-            if doc[i].whitespace_:
-                commitment = 0
             t_len = len(doc[i])
             commitment += t_len
             lens[i] = commitment
+            if not illegal_at[i]:
+                commitment = 0
         return lens
 
     @staticmethod
@@ -103,9 +103,9 @@ class Spacy(Tokenizer, Allocator):
     @classmethod
     def allocate(cls, doc, **kwargs):
         fill_width = kwargs.get("fill_width", 80)
-        commitments = cls._total_token_lens(doc)
         break_at = cls.tag_desired_breaks(doc)
         illegal_at = cls.tag_illegal_breaks(doc)
+        commitments = cls._total_token_lens(doc, illegal_at)
         lines = []
         line = []
         line_len = 0
