@@ -54,7 +54,6 @@ class Spacy(Tokenizer, Allocator):
         if not tokens:
             return ""
         doc = tokens[0].doc
-        print(tokens)
         return str(doc[tokens[0].i: (tokens[-1].i + 1)])
 
     @staticmethod
@@ -80,6 +79,17 @@ class Spacy(Tokenizer, Allocator):
         for token in doc:
             if token.tag_ == "CC" and token.head.pos_ == "VERB":
                 break_at[token.i] = True
+
+        for sent in doc.sents:
+            has_break = any(break_at[i] for i in range(sent.start, sent.end))
+            if len(sent) > 8 and not has_break:
+                for t in sent:
+                    if len(list(t.subtree)) > 4 and len(list(t.head.children)) == 2:
+                        break_at[t.i] = True
+
+        for token in doc:
+            if token.pos_ == "PUNCT":
+                break_at[token.i] = False
         return break_at
 
     @classmethod
@@ -90,16 +100,26 @@ class Spacy(Tokenizer, Allocator):
         lines = []
         line = []
         line_len = 0
-        for token, commitment in zip(doc, commitments):
-            token_len = len(token)
+        i = 0
+        while i < len(doc):
+            token = doc[i]
+            commitment = commitments[i]
+            token_len = len(token.text_with_ws)
             if line_len + commitment > fill_width or break_at[token.i]:
                 lines.append(line)
                 line = []
-                line.append(token)
-                line_len = token_len + 1
+                line_len = 0
+                append_token = True
+                while i < len(doc) and append_token:
+                    line.append(doc[i])
+                    line_len += len(doc[i].text_with_ws)
+                    append_token = not doc[i].whitespace_
+                    i += 1
             else:
                 line_len += token_len
                 line.append(token)
+                i += 1
+
         if line:
             lines.append(line)
         return lines
