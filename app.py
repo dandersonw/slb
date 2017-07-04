@@ -1,6 +1,9 @@
 #! /usr/bin/env python
 
 import argparse
+import sys
+import os.path
+sys.path.append(os.path.realpath("./slb"))
 import process
 import util
 import md
