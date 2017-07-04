@@ -23,23 +23,12 @@ class MdDoc(Doc):
 
 class MdCodeRegion(TextRegion):
     @staticmethod
-    def is_init_line(line, state):
-        is_init = line.startswith("```")
-        if is_init:
-            state["md_code_just_init"] = True
-        state["md_code_end_next"] = False
-        return is_init
+    def _is_init_line_inclusive(line, state):
+        return line.startswith("```")
 
     @staticmethod
-    def is_term_line(line, state):
-        if state["md_code_just_init"]:
-            state["md_code_just_init"] = False
-            return False
-        elif state["md_code_end_next"]:
-            return True
-        is_end = line.startswith("```")
-        state["md_code_end_next"] = is_end
-        return False
+    def _is_term_line_inclusive(line, state):
+        return line.startswith("```")
 
 
 class MdParagraphRegion(ParagraphRegion):
@@ -47,7 +36,7 @@ class MdParagraphRegion(ParagraphRegion):
         super().__init__(lines)
 
     @staticmethod
-    def is_term_line(line, state):
+    def _is_term_line_exclusive(line, state):
         return any(region_type.is_init_line(line, state)
                    for region_type in MdDoc.get_region_types()
                    if region_type != MdParagraphRegion)

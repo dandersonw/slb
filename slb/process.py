@@ -13,12 +13,39 @@ class TextRegion:
     def format_out(self, **kwards) -> Iterable[str]:
         return self.lines
 
-    @staticmethod
-    def is_init_line(line: str, state: Dict):
-        return True
+    @classmethod
+    def is_init_line(cls, line: str, state: Dict):
+        init = False
+        if cls._is_init_line_inclusive(line, state):
+            init = True
+        if init:
+            cls._set_state(state, "just_init", True)
+        return init
 
     @staticmethod
-    def is_term_line(line: str, state: Dict):
+    def _is_init_line_inclusive(line: str, state: Dict):
+        return True
+
+    @classmethod
+    def is_term_line(cls, line: str, state: Dict):
+        if cls._get_state(state, "just_init"):
+            cls._set_state(state, "just_init", False)
+            return False
+        elif cls._get_state(state, "end_next"):
+            cls._set_state(state, "end_next", False)
+            return True
+        if cls._is_term_line_exclusive(line, state):
+            return True
+        elif cls._is_term_line_inclusive(line, state):
+            cls._set_state(state, "end_next", True)
+            return False
+
+    @staticmethod
+    def _is_term_line_inclusive(line: str, state: Dict):
+        return False
+
+    @staticmethod
+    def _is_term_line_exclusive(line: str, state: Dict):
         return False
 
     @classmethod
@@ -26,6 +53,16 @@ class TextRegion:
         region_source = RegionSource(source, lambda l: cls.is_term_line(l, state))
         lines = list(region_source)
         return cls(lines)
+
+    @classmethod
+    def _get_state(cls, state, key):
+        key = "{}_{}".format(cls.__name__, key)
+        return state[key] if key in state else None
+
+    @classmethod
+    def _set_state(cls, state, key, val):
+        key = "{}_{}".format(cls.__name__, key)
+        state[key] = val
 
 
 class ParagraphRegion(TextRegion):
@@ -85,7 +122,7 @@ class Paragraph:
         allocator = kwargs.get("allocator", nlp.Allocator)
 
         tokens = tokenizer.tokenize(self.text, **kwargs)
-        token_lines = allocator.allocate(tokens, wlen_f)
+        token_lines = allocator.allocate(tokens, wlen_f, **kwargs)
         return [""] + [tokenizer.join_tokens(token_line) for token_line in token_lines]
 
     @staticmethod
