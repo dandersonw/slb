@@ -7,7 +7,7 @@ from typing import Iterable
 class MdDoc(Doc):
     @staticmethod
     def get_region_types():
-        return [MdCodeRegion, MdParagraphRegion]
+        return [MdCodeRegion, MdBlockQuoteRegion, MdParagraphRegion]
 
     @staticmethod
     def _get_default_format_config():
@@ -29,6 +29,24 @@ class MdCodeRegion(TextRegion):
     @staticmethod
     def _is_term_line_inclusive(line, state):
         return line.startswith("```")
+
+
+class MdBlockQuoteRegion(TextRegion):
+    def __init__(self, lines):
+        super().__init__(lines)
+        self.paragraph = Paragraph(l[3:] for l in self.lines)
+
+    @staticmethod
+    def _is_init_line_inclusive(line, state):
+        return line.startswith(" > ")
+
+    @staticmethod
+    def _is_term_line_exclusive(line, state):
+        return not line.startswith(" > ")
+
+    def format_out(self, **kwargs):
+        # TODO: adjust fill with by 3 characters?
+        return [" > " + l for l in self.paragraph.format_out(**kwargs)]
 
 
 class MdParagraphRegion(ParagraphRegion):

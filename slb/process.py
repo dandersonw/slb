@@ -10,7 +10,7 @@ class TextRegion:
     def __init__(self, lines: Iterable[str]):
         self.lines = list(lines)
 
-    def format_out(self, **kwards) -> Iterable[str]:
+    def format_out(self, **kwargs) -> Iterable[str]:
         return self.lines
 
     @classmethod
@@ -71,7 +71,18 @@ class ParagraphRegion(TextRegion):
         self.paragraphs = list(Paragraph.from_lines(self.lines))
 
     def format_out(self, **kwargs):
-        return itertools.chain.from_iterable(p.format_out(**kwargs) for p in self.paragraphs)
+        return self._separate_paragraphs(p.format_out(**kwargs) for p in self.paragraphs)
+
+    @staticmethod
+    def _separate_paragraphs(paragraphs: Iterable[Iterable[str]]):
+        first_paragraph = True
+        for paragraph in paragraphs:
+            if first_paragraph:
+                first_paragraph = False
+            else:
+                yield ""
+            for line in paragraph:
+                yield line
 
 
 class Doc:
@@ -83,11 +94,22 @@ class Doc:
         for key in default_config:
             if key not in kwargs:
                 kwargs[key] = default_config[key]
-        return itertools.chain.from_iterable(r.format_out(**kwargs) for r in self.regions)
+        return self._separate_regions(r.format_out(**kwargs) for r in self.regions)
 
     @staticmethod
     def _get_default_format_config():
         return dict()
+
+    @staticmethod
+    def _separate_regions(regions: Iterable[Iterable[str]]):
+        first_region = True
+        for region in regions:
+            if first_region:
+                first_region = False
+            else:
+                yield ""
+            for line in region:
+                yield line
 
     @staticmethod
     def get_region_types():
@@ -115,7 +137,7 @@ class Paragraph:
     def format_out(self, **kwargs):
         can_flow = kwargs.get("can_flow", lambda l: True)
         if not can_flow(self):
-            return [""] + self.lines
+            return self.lines
 
         tokenizer = kwargs.get("tokenizer", nlp.Tokenizer)
         wlen_f = kwargs.get("token_wlen_f", tokenizer.token_len_with_whitespace)
@@ -123,7 +145,7 @@ class Paragraph:
 
         tokens = tokenizer.tokenize(self.text, **kwargs)
         token_lines = allocator.allocate(tokens, wlen_f, **kwargs)
-        return [""] + [tokenizer.join_tokens(token_line) for token_line in token_lines]
+        return [tokenizer.join_tokens(token_line) for token_line in token_lines]
 
     @staticmethod
     def join_read_lines(lines: Iterable) -> str:
