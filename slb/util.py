@@ -55,4 +55,3 @@ class RegionSource(TextSource):
             raise StopIteration()
         else:
             return head
-

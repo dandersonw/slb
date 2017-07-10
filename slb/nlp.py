@@ -102,21 +102,15 @@ class Spacy(Tokenizer, Allocator):
         for sent in doc.sents:
             if sent.end < doc_len:
                 break_at[sent.end] = True
+            for token in sent:
+                if token.tag_ == "CC" and token.head.pos_ == "VERB":
+                    break_at[token.i] = True
 
-        for token in doc:
-            if token.tag_ == "CC" and token.head.pos_ == "VERB":
-                break_at[token.i] = True
-
-        for sent in doc.sents:
             has_break = any(break_at[i] for i in range(sent.start, sent.end))
             if len(sent) > 8 and not has_break:
                 for t in sent:
                     if len(list(t.subtree)) > 4 and len(list(t.head.children)) == 2:
                         break_at[t.i] = True
-
-        for token in doc:
-            if token.pos_ == "PUNCT":
-                break_at[token.i] = False
         return break_at
 
     @staticmethod
