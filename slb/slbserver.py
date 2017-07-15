@@ -3,6 +3,7 @@ import socketserver
 import process
 import nlp
 import struct
+import md
 
 PORT = 29010
 REQUEST_HEADER_FMT = "L"
@@ -23,9 +24,8 @@ class SlbRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):
         self.request.settimeout(1)
         data = SocketSource(self.request)
-        doc = process.Doc.from_source(data)
-        response_bytes = bytes("\n".join(doc.format_out()),
-                                   "utf-8")
+        doc = md.MdDoc.from_source(data)
+        response_bytes = bytes("\n".join(doc.format_out()), "utf-8")
         header = self._make_response_header(len(response_bytes))
         self.request.sendall(header)
         self.request.sendall(response_bytes)
@@ -43,32 +43,31 @@ def read_response_header(sock):
 
 def read_response(sock):
     header = read_response_header(sock)
+    return (header, _read_utf8(sock, header["size"]))
+
+
+def _read_utf8(sock, size):
     bytes_read = 0
-    chunks = []
-    while bytes_read < header["size"]:
-        rcvd = sock.recv(4096)
-        bytes_read += len(rcvd)
-        chunks.append(str(rcvd, "utf-8"))
-    return (header, "".join(chunks))
+    read = bytearray(b'\0' * size)
+    while bytes_read < size:
+        f = bytes_read
+        t = min(bytes_read + 4096, size)
+        bytes_read += sock.recv_into(memoryview(read)[f: t])
+    return str(read, "utf-8")
 
 
 class SocketSource(process.TextSource):
     def __init__(self, sock):
         self.sock = sock
-        self.buffer = ""
-        self.bytes_read = 0
+        self.chars_returned = 0
         self.head = None
-        header = struct.unpack(REQUEST_HEADER_FMT,
-                               sock.recv(struct.calcsize(REQUEST_HEADER_FMT)))
-        self.size = header[0]
+        self._read()
 
     def _read(self):
-        while "\n" not in self.buffer and self.bytes_read < self.size:
-            recvd = self.sock.recv(4096)
-            self.bytes_read += len(recvd)
-            self.buffer += str(recvd, "utf-8")
-        if not self.buffer:
-            raise StopIteration()
+        header = struct.unpack(REQUEST_HEADER_FMT,
+                               self.sock.recv(struct.calcsize(REQUEST_HEADER_FMT)))
+        bytesize = header[0]
+        self.buffer = _read_utf8(self.sock, bytesize)
 
     def __next__(self):
         if self.head is not None:
@@ -76,11 +75,14 @@ class SocketSource(process.TextSource):
             self.head = None
             return temp
 
-        self._read()
-        idx = self.buffer.find("\n")
-        idx = idx if idx != -1 else len(self.buffer)
-        to_return = self.buffer[:idx]
-        self.buffer = self.buffer[idx + 1:]
+        if self.chars_returned >= len(self.buffer):
+            raise StopIteration()
+
+        idx = self.buffer.find("\n", self.chars_returned)
+        idx = idx + 1 if idx != -1 else len(self.buffer)
+        to_return = self.buffer[self.chars_returned: idx]
+        self.chars_returned = idx
+        print("\"" + to_return.rstrip() + "\"")
         return to_return.rstrip()
 
     def peek(self):
