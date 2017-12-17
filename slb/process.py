@@ -172,6 +172,8 @@ class BulletRegion(TextRegion):
                 if bullet is not None:
                     yield bullet + line
                     bullet = None
+                elif len(line.strip()) == 0:
+                    continue
                 else:
                     yield " " * indent + line
         for l in self.suffix:

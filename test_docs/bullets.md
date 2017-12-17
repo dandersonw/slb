@@ -2,6 +2,8 @@ This is a normal paragraph. This is a normal paragraph. This is a normal paragra
 
 - a
 - b
+  - bullets within bullets
+  - bullets within bullets
 - this is a paragraph inside a bullet. this is a paragraph inside a bullet. this is a paragraph inside a bullet.
 - and another bullet
 - a bullet
