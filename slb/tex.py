@@ -60,3 +60,6 @@ class ItemizeRegion(BulletRegion):
         else:
             return None
 
+    @staticmethod
+    def get_doc_class():
+        return TexDoc

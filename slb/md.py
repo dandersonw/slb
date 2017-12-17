@@ -7,7 +7,10 @@ from typing import Iterable, Tuple
 class MdDoc(Doc):
     @staticmethod
     def get_region_types():
-        return [MdCodeRegion, MdBlockQuoteRegion, MdBulletRegion, MdParagraphRegion]
+        return [MdCodeRegion,
+                MdBlockQuoteRegion,
+                MdBulletRegion,
+                MdParagraphRegion]
 
     @staticmethod
     def _get_default_format_config():
@@ -76,3 +79,7 @@ class MdBulletRegion(BulletRegion):
             return m.groups()
         else:
             return None
+
+    @staticmethod
+    def get_doc_class():
+        return MdDoc

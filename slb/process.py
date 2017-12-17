@@ -91,6 +91,7 @@ class BulletRegion(TextRegion):
 
         src = FileTextSource(l for l in lines)
         self.prefix = self.get_prefix(src)
+        self.suffix = []
         self.bullets = []
         bullets = []
         bullet = None
