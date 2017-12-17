@@ -1,13 +1,13 @@
 import re
 
-from process import Doc, TextRegion, ParagraphRegion, Paragraph
-from typing import Iterable
+from process import Doc, TextRegion, ParagraphRegion, Paragraph, BulletRegion
+from typing import Iterable, Tuple
 
 
 class MdDoc(Doc):
     @staticmethod
     def get_region_types():
-        return [MdCodeRegion, MdBlockQuoteRegion, MdParagraphRegion]
+        return [MdCodeRegion, MdBlockQuoteRegion, MdBulletRegion, MdParagraphRegion]
 
     @staticmethod
     def _get_default_format_config():
@@ -58,3 +58,21 @@ class MdParagraphRegion(ParagraphRegion):
         return any(region_type.is_init_line(line, state)
                    for region_type in MdDoc.get_region_types()
                    if region_type != MdParagraphRegion)
+
+
+class MdBulletRegion(BulletRegion):
+    @staticmethod
+    def _is_init_line_inclusive(line, state):
+        return MdBulletRegion.split_bullet(line) is not None
+
+    @staticmethod
+    def _is_term_line_exclusive(line, state):
+        return len(line.strip()) == 0
+
+    @staticmethod
+    def split_bullet(line: str) -> Tuple[str, str]:
+        m = re.match(r"( *[-+*] ?)(.+)", line)
+        if m is not None:
+            return m.groups()
+        else:
+            return None

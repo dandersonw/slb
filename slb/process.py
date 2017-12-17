@@ -2,8 +2,8 @@ import re
 import itertools
 import nlp
 
-from util import TextSource, RegionSource
-from typing import Iterable, Dict
+from util import TextSource, RegionSource, FileTextSource
+from typing import Iterable, Dict, List, Tuple
 
 
 class TextRegion:
@@ -83,6 +83,98 @@ class ParagraphRegion(TextRegion):
                 yield ""
             for line in paragraph:
                 yield line
+
+
+class BulletRegion(TextRegion):
+    def __init__(self, lines: Iterable[str]):
+        super().__init__(lines)
+
+        src = FileTextSource(l for l in lines)
+        self.prefix = self.get_prefix(src)
+        self.bullets = []
+        bullets = []
+        bullet = None
+        blines = []
+
+        while True:
+            try:
+                line = next(src)
+                if bullet is None:
+                    bullet, first_line = self.split_bullet(line)
+                    blines = [first_line]
+                elif self.is_continuation(line, bullet):
+                    meat = self.split_continuation(line, bullet)
+                    blines.append(meat)
+                elif self.split_bullet(line) is not None:
+                    doc = self.get_doc_class().\
+                          from_source(FileTextSource(l for l in blines))
+                    bullets.append((bullet, doc))
+                    bullet, first_line = self.split_bullet(line)
+                    blines = [first_line]
+                elif self.get_suffix(line) is not None:
+                    self.suffix = [line]
+                else:
+                    print(line)
+                    raise ValueError()
+            except StopIteration:
+                break
+
+        if bullet is not None:
+            doc = self.get_doc_class().\
+                  from_source(FileTextSource(l for l in blines))
+            bullets.append((bullet, doc))
+        self.bullets = bullets
+    
+    @classmethod
+    def is_continuation(cls, line: str, bullet: str) -> bool:
+        indent = " " * cls.following_line_indent(bullet)
+        return line.startswith(indent)
+
+    @classmethod
+    def split_continuation(cls, line: str, bullet: str) -> str:
+        return line[cls.following_line_indent(bullet):]
+    
+    @classmethod
+    def get_prefix(cls, src: TextSource) -> List[str]:
+        return []
+
+    @classmethod
+    def get_suffix(cls, line: str) -> str:
+        return None
+
+    @staticmethod
+    def get_doc_class():
+        return Doc
+
+    @staticmethod
+    def following_line_indent(bullet) -> int:
+        return len(bullet)
+
+    @staticmethod
+    def split_bullet(line: str) -> Tuple[str, str]:
+        m = re.match(r"( *[-+*] ?)(.+)", line)
+        if m is not None:
+            return m.groups()
+        else:
+            return None
+
+    def format_out(self, **kwargs):
+        fill_width = kwargs.get("fill_width", 80)
+
+        for l in self.prefix:
+            yield l
+        for bullet, doc in self.bullets:
+            indent = self.following_line_indent(bullet)
+            new_kwargs = kwargs.copy()
+            new_kwargs["fill_width"] = fill_width - indent
+            for line in doc.format_out(**kwargs):
+                if bullet is not None:
+                    yield bullet + line
+                    bullet = None
+                else:
+                    yield " " * indent + line
+        for l in self.suffix:
+            yield l
 
 
 class Doc:

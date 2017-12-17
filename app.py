@@ -6,7 +6,7 @@ import os.path
 sys.path.append(os.path.realpath("./slb"))
 import process
 import util
-import md
+import md, tex
 import nlp
 import socket
 import slbserver
@@ -14,16 +14,26 @@ import slbserver
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.set_defaults(func=print_help)
+    parser.set_defaults(parser=parser)
+    
     subparsers = parser.add_subparsers()
 
     common = argparse.ArgumentParser(add_help=False)
+    common.set_defaults(infer_file_format=True)
     common.add_argument("-w",
                         help="Desired length of lines.",
                         type=int,
                         default=80)
     common.add_argument("-i",
-                       help="Input path. Default or \"-\" is stdin.",
-                       default="/dev/stdin")
+                        help="Input path. Default or \"-\" is stdin.",
+                        default="/dev/stdin")
+    common.add_argument("-f",
+                        help="Input file format")
+    common.add_argument("-no-infer-format",
+                         help="Don't infer the format of the input file",
+                         dest="infer_file_format",
+                         action="store_false")
 
     batch = subparsers.add_parser("batch", parents=[common])
     batch.set_defaults(func=batch_process)
@@ -44,17 +54,46 @@ def main():
     args.func(args)
 
 
+def print_help(args):
+    args.parser.print_help()
+
+
 def batch_process(args):
     format_kwargs = get_format_args(args)
+    doc_class = resolve_doc_type(args)
     with open(args.i, mode="r", encoding="utf-8") as inputFile:
         source = util.FileTextSource(inputFile)
-        doc = md.MdDoc.from_source(source)
+        doc = doc_class.from_source(source)
         print("\n".join(doc.format_out(**format_kwargs)))
 
 
 def start_server(args):
     server = slbserver.SlbDaemon()
     server.run()
+
+
+def resolve_doc_type(args) -> process.Doc:
+    DEFAULT_FORMAT = "md"
+    format_str = None
+    if args.f is not None:
+        format_str = args.f
+
+    extension_to_format = {"md": "md",
+                           "tex": "tex"}
+        
+    file_tail = args.i[-4:]
+    if format_str is None and args.infer_file_format \
+       and "." in file_tail:
+        extension = file_tail.split(".")[1]
+        if extension in extension_to_format:
+            format_str = extension_to_format[extension]
+
+    if format_str is None:
+        format_str = DEFAULT_FORMAT
+
+    format_to_class = {"md": md.MdDoc,
+                       "tex": tex.TexDoc}
+    return format_to_class[format_str]
 
 
 def client_process(args):
